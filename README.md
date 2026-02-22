@@ -1,21 +1,22 @@
-# Telegram Streaming Proxy
+# Telegram Streaming Proxy (Pyrogram)
 
-Este proyecto crea una pequeña API/web para usar Telegram como almacenamiento de videos y reproducirlos desde una página web usando enlaces de streaming.
+Este proyecto expone una API/web para reproducir videos de Telegram (incluyendo archivos grandes) usando MTProto con **Pyrogram**.
 
 ## ¿Cómo funciona?
 
-1. Subes o reenvías tus videos a un bot de Telegram.
-2. El bot obtiene el `file_id` de cada video.
+1. Tu bot está en el canal donde subes películas/capítulos.
+2. Tomas el enlace del mensaje (ej: `https://t.me/c/123456/789`).
 3. Esta app expone:
-   - `GET /stream/{file_id}`: proxy de streaming (oculta tu token del bot).
-   - `GET /watch/{file_id}`: página HTML con reproductor `<video>`.
-
-> Nota: para contenido personal de tu cuenta (no bot), necesitarías MTProto (Telethon/Pyrogram). Esta versión usa la Bot API porque es más estable para publicar streaming web.
+   - `GET /stream/{chat_id}/{message_id}`: proxy de streaming por chunks.
+   - `GET /watch/{chat_id}/{message_id}`: reproductor HTML.
+   - `GET /`: formulario que acepta el enlace `t.me/c/...` y carga el iframe.
 
 ## Requisitos
 
 - Python 3.11+
-- Un bot de Telegram (`@BotFather`) y su token
+- `TELEGRAM_API_ID` y `TELEGRAM_API_HASH` (de https://my.telegram.org)
+- `TELEGRAM_BOT_TOKEN` (de `@BotFather`)
+- El bot debe estar en el canal con permisos para leer mensajes.
 
 ## Configuración
 
@@ -23,15 +24,14 @@ Este proyecto crea una pequeña API/web para usar Telegram como almacenamiento d
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
 ```
 
-Edita `.env`:
+Variables de entorno:
 
 ```env
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=0123456789abcdef0123456789abcdef
 TELEGRAM_BOT_TOKEN=123456:ABC...
-HOST=0.0.0.0
-PORT=8000
 ```
 
 ## Ejecutar
@@ -40,32 +40,35 @@ PORT=8000
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## Obtener `file_id`
-
-Envía un video al bot y llama:
-
-```bash
-curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates"
-```
-
-Busca `message.video.file_id` (o `message.document.file_id`).
-
 ## Uso
 
-- Streaming directo:
+### Opción A: Home con iframe
+
+Abre:
 
 ```text
-http://localhost:8000/stream/<file_id>
+http://localhost:8000/
 ```
 
-- Página web con reproductor:
+Pega una referencia de media:
+
+- Enlace privado: `https://t.me/c/123456/789`
+- O formato directo: `-100123456:789`
+
+### Opción B: URLs directas
 
 ```text
-http://localhost:8000/watch/<file_id>
+http://localhost:8000/watch/-100123456/789
+http://localhost:8000/stream/-100123456/789
 ```
+
+## Cómo obtener `chat_id` y `message_id`
+
+- Si tienes enlace `https://t.me/c/123456/789`:
+  - `chat_id` = `-100123456`
+  - `message_id` = `789`
 
 ## Consideraciones
 
-- Este proxy pasa cabeceras `Range` para reproducción por salto (`seek`) en navegador.
-- No sube archivos automáticamente: solo reproduce los ya subidos a Telegram.
+- Este enfoque evita la limitación de Bot API con `file is too big`, porque usa MTProto con Pyrogram.
 - Para producción, agrega autenticación o URLs firmadas para evitar acceso público a tus archivos.
